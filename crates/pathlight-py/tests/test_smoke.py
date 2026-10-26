@@ -53,19 +53,19 @@ def _triangle():
     return path
 
 
-def test_stroke_with_dashes_and_clip_not_implemented_yet():
-    clip = pathlight.Surface(8, 8, pathlight.Format.A8)
-    with pytest.raises(NotImplementedError):
-        pathlight.stroke(
-            pathlight.Surface(8, 8),
-            _triangle(),
-            (0, 0, 1, 1),
-            width=2,
-            cap=pathlight.LineCap.ROUND,
-            join=pathlight.LineJoin.BEVEL,
-            dashes=[3, 1],
-            clip=clip,
-        )
+def test_stroke_with_dashes_and_clip():
+    path = pathlight.Path()
+    path.move_to(0, 1)
+    path.line_to(8, 1)
+    clip = pathlight.Surface(8, 2, pathlight.Format.A8)
+    s = pathlight.Surface(8, 2)
+    # An empty clip hides everything.
+    pathlight.stroke(s, path, (0, 0, 1, 1), width=2, dashes=[2, 2], clip=clip)
+    assert s.data() == bytes(8 * 2 * 4)
+    pathlight.stroke(s, path, (0, 0, 1, 1), width=2, cap=pathlight.LineCap.BUTT, dashes=[2, 2])
+    row = s.data()[: 8 * 4]
+    alphas = [row[i * 4 + 3] for i in range(8)]
+    assert alphas == [255, 255, 0, 0, 255, 255, 0, 0]
 
 
 def test_invalid_stroke_width_is_rejected():

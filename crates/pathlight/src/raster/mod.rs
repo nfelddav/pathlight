@@ -13,7 +13,7 @@
 //! The compositor (`crate::composite`) then paints strips and fills.
 
 mod cells;
-mod flatten;
+pub(crate) mod flatten;
 mod strips;
 
 pub(crate) use strips::Coverage;
@@ -27,7 +27,7 @@ pub(crate) const TILE_WIDTH: u32 = 4;
 pub(crate) const TILE_HEIGHT: u32 = 4;
 
 /// Maximum distance, in pixels, between a curve and its flattened lines.
-const TOLERANCE: f32 = 0.1;
+pub(crate) const TOLERANCE: f32 = 0.1;
 
 /// Rasterizes `path` into sparse coverage for a `width` × `height` target.
 pub(crate) fn rasterize(

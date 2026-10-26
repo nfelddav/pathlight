@@ -6,6 +6,7 @@ use crate::paint::Paint;
 use crate::path::{FillRule, Path};
 use crate::raster;
 use crate::stroke::StrokeStyle;
+use crate::stroker;
 use crate::surface::{Mask, Surface};
 
 /// Fills `path` into `surface`.
@@ -36,6 +37,10 @@ pub fn fill(
 }
 
 /// Strokes `path` into `surface`. See [`fill`] for `clip`.
+///
+/// Returns [`Error::InvalidArgument`] if the dash pattern would split the
+/// path into more than a million dashes, or if the outline would need more
+/// than 2²³ points (or 64 per input point, if that is more).
 pub fn stroke(
     surface: &mut Surface<'_>,
     path: &Path,
@@ -45,11 +50,19 @@ pub fn stroke(
     blend: BlendMode,
     clip: Option<&Mask<'_>>,
 ) -> Result<(), Error> {
-    let _ = (surface, blend, clip);
     if !transform.is_finite() || !path.is_finite() || !paint.is_valid() || !style.is_valid() {
         return Err(Error::InvalidArgument);
     }
-    Err(Error::Unimplemented)
+    let outline = stroker::stroke_outline(path, style, transform, raster::TOLERANCE)?;
+    fill(
+        surface,
+        &outline,
+        FillRule::NonZero,
+        paint,
+        transform,
+        blend,
+        clip,
+    )
 }
 
 #[cfg(test)]

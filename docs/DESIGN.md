@@ -60,6 +60,20 @@ Details of the current implementation (`crates/pathlight/src/raster/`):
   as in FreeType and font-rs.
 - The compositor writes opaque source-over spans directly as bytes and sends
   everything else through the blend formulas.
+- Strokes (`crates/pathlight/src/stroker.rs`) are flattened in user space at
+  the fill tolerance divided by the transform's largest scale, dashed, and
+  emitted as a union of same-orientation convex pieces: a quad per segment,
+  a wedge per join, a fan or square per cap. Filling that non-zero handles
+  cusps and self-intersections without offset-curve logic; the cost is more
+  edges and slightly heavier antialiasing where pieces overlap along an
+  edge. Vertices inside a flattened curve always get round joins. Arcs place
+  their inner vertices just outside the circle so the area is preserved.
+- Dashing restarts the pattern on every subpath, repeats odd patterns twice
+  (as SVG does), and joins a dash that runs over the start of a closed
+  subpath into one. A pattern that would make more than a million dashes is
+  rejected, and so is an outline over 2²³ points (or 64 per input point).
+  Zero-length dashes keep the path's direction, so their square and round
+  caps line up with the path.
 - Text (`crates/pathlight/src/text.rs`): unicode-bidi splits each paragraph
   into runs in visual order, unicode-script splits those by script (common
   and inherited characters join the run around them), and harfrust shapes

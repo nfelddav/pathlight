@@ -19,6 +19,7 @@ mod path;
 mod raster;
 mod render;
 mod stroke;
+mod stroker;
 mod surface;
 #[cfg(feature = "text")]
 mod text;

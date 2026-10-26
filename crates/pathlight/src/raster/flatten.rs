@@ -89,10 +89,7 @@ pub(crate) fn flatten(
             Verb::QuadTo => {
                 let (c, p) = (device(pts[pi]), device(pts[pi + 1]));
                 if visible(&[cur, c, p]) {
-                    let dd = (cur - c * 2.0 + p).len();
-                    // A chord over a parameter step h deviates from a quadratic
-                    // by at most |B''| h² / 8 = |dd| h² / 4.
-                    let n = subdivisions((dd / (4.0 * tolerance)).sqrt());
+                    let n = quad_subdivisions(cur, c, p, tolerance);
                     let mut prev = cur;
                     for i in 1..=n {
                         let s = i as f32 / n as f32;
@@ -109,9 +106,7 @@ pub(crate) fn flatten(
             Verb::CubicTo => {
                 let (c1, c2, p) = (device(pts[pi]), device(pts[pi + 1]), device(pts[pi + 2]));
                 if visible(&[cur, c1, c2, p]) {
-                    // Wang's formula for uniform subdivision of a cubic.
-                    let dd = (cur - c1 * 2.0 + c2).len().max((c1 - c2 * 2.0 + p).len());
-                    let n = subdivisions((0.75 * dd / tolerance).sqrt());
+                    let n = cubic_subdivisions(cur, c1, c2, p, tolerance);
                     let mut prev = cur;
                     for i in 1..=n {
                         let s = i as f32 / n as f32;
@@ -138,6 +133,27 @@ pub(crate) fn flatten(
     line(out, cur, start);
 }
 
+/// Number of equal parameter steps that keep every chord of a quadratic
+/// within `tolerance` of the curve.
+pub(crate) fn quad_subdivisions(p0: Point, c: Point, p1: Point, tolerance: f32) -> u32 {
+    // A chord over a parameter step h deviates from a quadratic by at most
+    // |B''| h² / 8 = |dd| h² / 4.
+    let dd = (p0 - c * 2.0 + p1).len();
+    subdivisions((dd / (4.0 * tolerance)).sqrt())
+}
+
+/// Like [`quad_subdivisions`] for a cubic, using Wang's formula.
+pub(crate) fn cubic_subdivisions(
+    p0: Point,
+    c1: Point,
+    c2: Point,
+    p1: Point,
+    tolerance: f32,
+) -> u32 {
+    let dd = (p0 - c1 * 2.0 + c2).len().max((c1 - c2 * 2.0 + p1).len());
+    subdivisions((0.75 * dd / tolerance).sqrt())
+}
+
 fn subdivisions(n: f32) -> u32 {
     if n.is_finite() {
         (n.ceil() as u32).clamp(1, MAX_SUBDIVISIONS)
@@ -146,12 +162,12 @@ fn subdivisions(n: f32) -> u32 {
     }
 }
 
-fn quad_at(p0: Point, c: Point, p1: Point, t: f32) -> Point {
+pub(crate) fn quad_at(p0: Point, c: Point, p1: Point, t: f32) -> Point {
     let mt = 1.0 - t;
     p0 * (mt * mt) + c * (2.0 * mt * t) + p1 * (t * t)
 }
 
-fn cubic_at(p0: Point, c1: Point, c2: Point, p1: Point, t: f32) -> Point {
+pub(crate) fn cubic_at(p0: Point, c1: Point, c2: Point, p1: Point, t: f32) -> Point {
     let mt = 1.0 - t;
     p0 * (mt * mt * mt) + c1 * (3.0 * mt * mt * t) + c2 * (3.0 * mt * t * t) + p1 * (t * t * t)
 }
