@@ -485,6 +485,28 @@ pub unsafe extern "C" fn pathlight_font_free(font: *mut PathlightFont) {
     }
 }
 
+/// Stores in `*advance` how far the pen moves when `len` bytes of UTF-8
+/// `text` are drawn at `size` pixels per em, in user-space units.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn pathlight_measure_text(
+    font: *const PathlightFont,
+    text: *const c_char,
+    len: usize,
+    size: f32,
+    advance: *mut f32,
+) -> PathlightStatus {
+    guard(|| unsafe {
+        let font = font.as_ref().ok_or(Error::InvalidArgument)?;
+        if text.is_null() || advance.is_null() {
+            return Err(Error::InvalidArgument);
+        }
+        let text = std::str::from_utf8(std::slice::from_raw_parts(text.cast(), len))
+            .map_err(|_| Error::InvalidArgument)?;
+        *advance = pathlight::measure_text(&font.0, text, size)?;
+        Ok(())
+    })
+}
+
 /// Draws `len` bytes of UTF-8 `text` on one line, baseline origin at (x, y),
 /// `size` pixels per em. See pathlight_fill for `transform` and `clip`.
 #[unsafe(no_mangle)]

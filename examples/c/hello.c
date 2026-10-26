@@ -1,11 +1,11 @@
 /* Smoke test for the pathlight C ABI: builds a path, validates arguments and
- * calls every draw entry point. Exits non-zero if the ABI misbehaves.
- * Text drawing still reports PATHLIGHT_STATUS_UNIMPLEMENTED. */
+ * calls every draw entry point. Exits non-zero if the ABI misbehaves. */
 
 #include <math.h>
 #include <pathlight.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define W 64
 #define H 64
@@ -89,6 +89,37 @@ int main(void) {
     PathlightFont *font = NULL;
     const uint8_t junk[] = "not a font";
     expect("font junk", pathlight_font_new(junk, sizeof junk, 0, &font), PATHLIGHT_STATUS_INVALID_FONT);
+
+    /* Text, with the font the core tests use. `make run` runs from examples/c. */
+    FILE *f = fopen("../../crates/pathlight/tests/fonts/DejaVuSans-subset.ttf", "rb");
+    if (!f) {
+        fprintf(stderr, "FAIL cannot open test font\n");
+        failures++;
+    } else {
+        static uint8_t font_data[1 << 20];
+        size_t font_len = fread(font_data, 1, sizeof font_data, f);
+        fclose(f);
+        expect("font", pathlight_font_new(font_data, font_len, 0, &font), PATHLIGHT_STATUS_OK);
+        const char *hello = "Hi \xd7\xa9\xd7\x9c\xd7\x95\xd7\x9d"; /* "Hi שלום" */
+        float advance = 0.0f;
+        expect("measure", pathlight_measure_text(font, hello, strlen(hello), 20.0f, &advance), PATHLIGHT_STATUS_OK);
+        if (!(advance > 20.0f && advance < 100.0f)) {
+            fprintf(stderr, "FAIL advance %f\n", advance);
+            failures++;
+        }
+        memset(pixels, 0, sizeof pixels);
+        expect("draw_text", pathlight_draw_text(&surface, font, hello, strlen(hello), 20.0f, 4, 40, &red, NULL, 0, NULL),
+               PATHLIGHT_STATUS_OK);
+        int inked = 0;
+        for (size_t i = 3; i < sizeof pixels; i += 4) inked += pixels[i] != 0;
+        if (inked < 50) {
+            fprintf(stderr, "FAIL draw_text inked only %d pixels\n", inked);
+            failures++;
+        }
+        expect("draw_text bad utf8", pathlight_draw_text(&surface, font, "\xff", 1, 20.0f, 4, 40, &red, NULL, 0, NULL),
+               PATHLIGHT_STATUS_INVALID_ARGUMENT);
+        pathlight_font_free(font);
+    }
 
     pathlight_path_free(path);
 

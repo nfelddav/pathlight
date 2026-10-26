@@ -204,6 +204,14 @@ PathlightStatus pathlight_font_new(const uint8_t *data,
 // Frees a font. NULL is ignored.
 void pathlight_font_free(PathlightFont *font);
 
+// Stores in `*advance` how far the pen moves when `len` bytes of UTF-8
+// `text` are drawn at `size` pixels per em, in user-space units.
+PathlightStatus pathlight_measure_text(const PathlightFont *font,
+                                       const char *text,
+                                       size_t len,
+                                       float size,
+                                       float *advance);
+
 // Draws `len` bytes of UTF-8 `text` on one line, baseline origin at (x, y),
 // `size` pixels per em. See pathlight_fill for `transform` and `clip`.
 PathlightStatus pathlight_draw_text(const PathlightSurface *target,

@@ -6,7 +6,7 @@ use pathlight::{
 };
 
 fn main() {
-    let (w, h) = (320u32, 200u32);
+    let (w, h) = (320u32, 240u32);
     let mut pixels = vec![255u8; (w * h * 4) as usize];
     let mut surface = Surface::new(&mut pixels, w, h, w as usize * 4, Format::Rgba8).unwrap();
     let id = Transform::IDENTITY;
@@ -145,6 +145,26 @@ fn main() {
         )
         .unwrap();
     }
+
+    // Shaped text: Latin with kerning, then Arabic and Hebrew right to left.
+    let font =
+        pathlight::Font::from_bytes(include_bytes!("../tests/fonts/DejaVuSans-subset.ttf"), 0)
+            .unwrap();
+    let ink = Paint::Solid(Color::rgba(0.1, 0.1, 0.15, 1.0));
+    let text = "AV Type, مرحبا שלום";
+    pathlight::draw_text(
+        &mut surface,
+        &font,
+        text,
+        22.0,
+        18.0,
+        228.0,
+        &ink,
+        &id,
+        BlendMode::Normal,
+        None,
+    )
+    .unwrap();
 
     let mut ppm = format!("P6\n{w} {h}\n255\n").into_bytes();
     for px in pixels.as_chunks::<4>().0 {
