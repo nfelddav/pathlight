@@ -14,7 +14,10 @@ pub(crate) fn paint_coverage(
     clip: Option<&Mask<'_>>,
 ) {
     let Paint::Solid(color) = paint;
-    let c = color.premultiplied().map(|v| v.clamp(0.0, 1.0));
+    // Clamp the straight color first: clamping after premultiplying would let
+    // an out-of-range channel survive, e.g. red 2.0 at alpha 0.5.
+    let [r, g, b, a] = [color.r, color.g, color.b, color.a].map(|v| v.clamp(0.0, 1.0));
+    let c = [r * a, g * a, b * a, a];
     let mut painter = Painter::new(surface, c, blend, clip);
     let th = TILE_HEIGHT as usize;
     for strip in &coverage.strips {

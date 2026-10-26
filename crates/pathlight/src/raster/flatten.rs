@@ -90,7 +90,9 @@ pub(crate) fn flatten(
                 let (c, p) = (device(pts[pi]), device(pts[pi + 1]));
                 if visible(&[cur, c, p]) {
                     let dd = (cur - c * 2.0 + p).len();
-                    let n = subdivisions((dd / (8.0 * tolerance)).sqrt());
+                    // A chord over a parameter step h deviates from a quadratic
+                    // by at most |B''| h² / 8 = |dd| h² / 4.
+                    let n = subdivisions((dd / (4.0 * tolerance)).sqrt());
                     let mut prev = cur;
                     for i in 1..=n {
                         let s = i as f32 / n as f32;

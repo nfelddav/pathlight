@@ -340,3 +340,69 @@ fn extreme_inputs_do_not_hang_or_panic() {
             .all(|&a| a == 0)
     );
 }
+
+#[test]
+fn out_of_range_colors_are_clamped_before_premultiplying() {
+    let too_red = Paint::Solid(Color::rgba(2.0, -1.0, 0.0, 0.5));
+    assert_eq!(
+        rgba_pixel(Format::Rgba8, [0, 0, 0, 255], too_red, BlendMode::Normal),
+        [128, 0, 0, 255]
+    );
+}
+
+#[test]
+fn flattening_stays_within_tolerance() {
+    use super::flatten::flatten;
+    fn dist_to_segment(p: Point, a: Point, b: Point) -> f32 {
+        let ab = b - a;
+        let t = (((p.x - a.x) * ab.x + (p.y - a.y) * ab.y) / (ab.x * ab.x + ab.y * ab.y))
+            .clamp(0.0, 1.0);
+        (p - (a + ab * t)).len()
+    }
+    let mut quad = PathBuilder::new();
+    quad.move_to(Point::new(10.0, 90.0))
+        .quad_to(Point::new(50.0, -60.0), Point::new(90.0, 90.0));
+    let mut cubic = PathBuilder::new();
+    cubic.move_to(Point::new(10.0, 90.0)).cubic_to(
+        Point::new(0.0, -40.0),
+        Point::new(100.0, -40.0),
+        Point::new(90.0, 90.0),
+    );
+    let eval: [&dyn Fn(f32) -> Point; 2] = [
+        &|t| {
+            let mt = 1.0 - t;
+            Point::new(10.0, 90.0) * (mt * mt)
+                + Point::new(50.0, -60.0) * (2.0 * mt * t)
+                + Point::new(90.0, 90.0) * (t * t)
+        },
+        &|t| {
+            let mt = 1.0 - t;
+            Point::new(10.0, 90.0) * (mt * mt * mt)
+                + Point::new(0.0, -40.0) * (3.0 * mt * mt * t)
+                + Point::new(100.0, -40.0) * (3.0 * mt * t * t)
+                + Point::new(90.0, 90.0) * (t * t * t)
+        },
+    ];
+    for (path, curve) in [quad.finish(), cubic.finish()].iter().zip(eval) {
+        let mut lines = Vec::new();
+        flatten(
+            path,
+            &Transform::IDENTITY,
+            super::TOLERANCE,
+            100.0,
+            100.0,
+            &mut lines,
+        );
+        // The closing line is horizontal here, so flatten already skipped it.
+        let worst = (0..=2000)
+            .map(|i| curve(i as f32 / 2000.0))
+            .map(|p| {
+                lines
+                    .iter()
+                    .map(|l| dist_to_segment(p, l.p0, l.p1))
+                    .fold(f32::INFINITY, f32::min)
+            })
+            .fold(0.0, f32::max);
+        assert!(worst <= super::TOLERANCE * 1.01, "max chord error {worst}");
+    }
+}

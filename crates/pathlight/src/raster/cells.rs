@@ -12,6 +12,10 @@ use crate::geom::Point;
 /// A cell: a packed sort key (band, x, row-in-band) and its contribution.
 pub(crate) type Cell = (u64, f32);
 
+// The band takes the top 28 bits of the key, which every height up to
+// MAX_HEIGHT fits.
+const _: () = assert!((crate::surface::MAX_HEIGHT / TILE_HEIGHT) as u64 <= 1 << 28);
+
 pub(crate) fn key(x: u32, y: u32) -> u64 {
     let band = (y / TILE_HEIGHT) as u64;
     let row = (y % TILE_HEIGHT) as u64;
