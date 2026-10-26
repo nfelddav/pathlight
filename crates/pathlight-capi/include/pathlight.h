@@ -72,7 +72,9 @@ typedef struct {
   float y;
 } PathlightPoint;
 
-// A caller-owned pixel buffer: `height` rows of `stride` bytes.
+// A caller-owned pixel buffer of `height` rows, `stride` bytes apart. The
+// last row only needs `width` pixels. A clip passed to a draw call must not
+// share any bytes with the target.
 typedef struct {
   uint8_t *data;
   uint32_t width;

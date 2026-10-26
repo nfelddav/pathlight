@@ -2,6 +2,7 @@
  * calls every draw entry point. Exits non-zero if the ABI misbehaves.
  * Drawing calls currently report PATHLIGHT_STATUS_UNIMPLEMENTED. */
 
+#include <math.h>
 #include <pathlight.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -53,6 +54,31 @@ int main(void) {
            PATHLIGHT_STATUS_UNIMPLEMENTED);
     expect("stroke rgba clip", pathlight_stroke(&surface, path, &style, &red, NULL, 0, &surface),
            PATHLIGHT_STATUS_INVALID_ARGUMENT);
+
+    /* Last row only needs width * 4 bytes, not a full stride: a tightly sized
+     * buffer must be accepted and never read past. */
+    uint8_t *tight = malloc(16 * 1 + 2 * 4);
+    PathlightSurface tight_surface = {tight, 2, 2, 16, PATHLIGHT_FORMAT_RGBA8};
+    expect("fill tight last row", pathlight_fill(&tight_surface, path, PATHLIGHT_FILL_NONZERO, &red, NULL, 0, NULL),
+           PATHLIGHT_STATUS_UNIMPLEMENTED);
+    free(tight);
+
+    /* A clip may not share bytes with the target it clips. */
+    expect("fill clip aliases target", pathlight_fill(&mask, path, PATHLIGHT_FILL_NONZERO, &red, NULL, 0, &mask),
+           PATHLIGHT_STATUS_INVALID_ARGUMENT);
+    PathlightSurface half_mask = {mask_pixels + (W * H) / 2, W, H / 2, W, PATHLIGHT_FORMAT_A8};
+    expect("fill clip overlaps target", pathlight_fill(&mask, path, PATHLIGHT_FILL_NONZERO, &red, NULL, 0, &half_mask),
+           PATHLIGHT_STATUS_INVALID_ARGUMENT);
+
+    PathlightPaint nan_paint = {PATHLIGHT_PAINT_SOLID, {NAN, 0.0f, 0.0f, 1.0f}, NULL};
+    expect("fill NaN color", pathlight_fill(&surface, path, PATHLIGHT_FILL_NONZERO, &nan_paint, NULL, 0, NULL),
+           PATHLIGHT_STATUS_INVALID_ARGUMENT);
+    PathlightPath *inf_path = pathlight_path_new();
+    pathlight_path_move_to(inf_path, 0, 0);
+    pathlight_path_line_to(inf_path, INFINITY, 4);
+    expect("fill infinite point", pathlight_fill(&surface, inf_path, PATHLIGHT_FILL_NONZERO, &red, NULL, 0, NULL),
+           PATHLIGHT_STATUS_INVALID_ARGUMENT);
+    pathlight_path_free(inf_path);
 
     PathlightFont *font = NULL;
     const uint8_t junk[] = "not a font";

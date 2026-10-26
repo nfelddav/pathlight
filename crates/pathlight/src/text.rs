@@ -54,8 +54,13 @@ pub fn draw_text(
     blend: BlendMode,
     clip: Option<&Mask<'_>>,
 ) -> Result<(), Error> {
-    let _ = (surface, font, text, paint, blend, clip);
-    if !(size.is_finite() && size > 0.0 && x.is_finite() && y.is_finite() && transform.is_finite())
+    let _ = (surface, font, text, blend, clip);
+    if !(size.is_finite()
+        && size > 0.0
+        && x.is_finite()
+        && y.is_finite()
+        && transform.is_finite()
+        && paint.is_valid())
     {
         return Err(Error::InvalidArgument);
     }

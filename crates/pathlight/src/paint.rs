@@ -14,6 +14,14 @@ impl Color {
         Color { r, g, b, a }
     }
 
+    /// Whether every channel is finite. Finite values outside `0.0..=1.0`
+    /// are clamped when drawing.
+    pub fn is_finite(&self) -> bool {
+        [self.r, self.g, self.b, self.a]
+            .iter()
+            .all(|v| v.is_finite())
+    }
+
     /// Returns `[r, g, b, a]` premultiplied by alpha.
     pub fn premultiplied(&self) -> [f32; 4] {
         [self.r * self.a, self.g * self.a, self.b * self.a, self.a]
@@ -28,4 +36,12 @@ impl Color {
 #[non_exhaustive]
 pub enum Paint {
     Solid(Color),
+}
+
+impl Paint {
+    pub(crate) fn is_valid(&self) -> bool {
+        match self {
+            Paint::Solid(c) => c.is_finite(),
+        }
+    }
 }

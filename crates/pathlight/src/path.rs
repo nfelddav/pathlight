@@ -46,6 +46,13 @@ impl Path {
     pub fn is_empty(&self) -> bool {
         self.verbs.is_empty()
     }
+
+    /// Whether every coordinate is finite (no NaN or infinity).
+    pub fn is_finite(&self) -> bool {
+        self.points
+            .iter()
+            .all(|p| p.x.is_finite() && p.y.is_finite())
+    }
 }
 
 /// Builds a [`Path`].

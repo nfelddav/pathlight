@@ -1,6 +1,6 @@
 # Builds the C example against the static library from `cargo build --release`.
 ROOT := ../..
-CFLAGS ?= -std=c99 -Wall -Wextra -Werror -O2
+CFLAGS ?= -std=c99 -Wall -Wextra -Werror -O2 -g -fsanitize=address,undefined
 LDLIBS := $(ROOT)/target/release/libpathlight.a -lpthread -ldl -lm
 
 hello: hello.c $(ROOT)/crates/pathlight-capi/include/pathlight.h $(ROOT)/target/release/libpathlight.a

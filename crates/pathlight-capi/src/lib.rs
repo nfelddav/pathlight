@@ -84,7 +84,9 @@ pub struct PathlightTransform {
     pub f: f32,
 }
 
-/// A caller-owned pixel buffer: `height` rows of `stride` bytes.
+/// A caller-owned pixel buffer of `height` rows, `stride` bytes apart. The
+/// last row only needs `width` pixels. A clip passed to a draw call must not
+/// share any bytes with the target.
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct PathlightSurface {
@@ -147,33 +149,62 @@ fn point(x: f32, y: f32) -> Point {
     Point::new(x, y)
 }
 
-unsafe fn surface<'a>(s: *const PathlightSurface) -> Result<Surface<'a>, Error> {
-    let s = unsafe { s.as_ref() }.ok_or(Error::InvalidArgument)?;
-    if s.data.is_null() || s.height == 0 {
+/// Number of bytes a surface spans: full strides for every row but the last,
+/// which only needs `width` pixels. This matches what the core accepts, so a
+/// caller with a tightly packed last row is never read past.
+fn byte_len(s: &PathlightSurface, format: Format) -> Result<usize, Error> {
+    if s.data.is_null() || s.width == 0 || s.height == 0 {
         return Err(Error::InvalidArgument);
     }
-    let format = Format::from_u32(s.format).ok_or(Error::InvalidArgument)?;
+    let row = (s.width as usize)
+        .checked_mul(format.bytes_per_pixel())
+        .ok_or(Error::InvalidArgument)?;
+    if s.stride < row {
+        return Err(Error::InvalidArgument);
+    }
     let len = s
         .stride
-        .checked_mul(s.height as usize)
+        .checked_mul(s.height as usize - 1)
+        .and_then(|n| n.checked_add(row))
         .ok_or(Error::InvalidArgument)?;
-    let data = unsafe { std::slice::from_raw_parts_mut(s.data, len) };
-    Surface::new(data, s.width, s.height, s.stride, format)
+    if len > isize::MAX as usize {
+        return Err(Error::InvalidArgument);
+    }
+    Ok(len)
 }
 
-unsafe fn clip<'a>(s: *const PathlightSurface) -> Result<Option<Mask<'a>>, Error> {
-    let Some(s) = (unsafe { s.as_ref() }) else {
-        return Ok(None);
+/// Builds the target surface and optional clip mask for a draw call,
+/// rejecting a clip whose bytes overlap the target's, since the target is
+/// written while the clip is read.
+unsafe fn target_and_clip<'a>(
+    target: *const PathlightSurface,
+    clip: *const PathlightSurface,
+) -> Result<(Surface<'a>, Option<Mask<'a>>), Error> {
+    let t = unsafe { target.as_ref() }.ok_or(Error::InvalidArgument)?;
+    let format = Format::from_u32(t.format).ok_or(Error::InvalidArgument)?;
+    let t_len = byte_len(t, format)?;
+    let t_start = t.data as usize;
+
+    let mask = match unsafe { clip.as_ref() } {
+        None => None,
+        Some(c) => {
+            if c.format != PATHLIGHT_FORMAT_A8 {
+                return Err(Error::InvalidArgument);
+            }
+            let c_len = byte_len(c, Format::A8)?;
+            let c_start = c.data as usize;
+            if c_start < t_start.saturating_add(t_len) && t_start < c_start.saturating_add(c_len) {
+                return Err(Error::InvalidArgument);
+            }
+            let data = unsafe { std::slice::from_raw_parts(c.data, c_len) };
+            Some(Mask::new(data, c.width, c.height, c.stride)?)
+        }
     };
-    if s.data.is_null() || s.format != PATHLIGHT_FORMAT_A8 || s.height == 0 {
-        return Err(Error::InvalidArgument);
-    }
-    let len = s
-        .stride
-        .checked_mul(s.height as usize)
-        .ok_or(Error::InvalidArgument)?;
-    let data = unsafe { std::slice::from_raw_parts(s.data, len) };
-    Mask::new(data, s.width, s.height, s.stride).map(Some)
+    let data = unsafe { std::slice::from_raw_parts_mut(t.data, t_len) };
+    Ok((
+        Surface::new(data, t.width, t.height, t.stride, format)?,
+        mask,
+    ))
 }
 
 unsafe fn paint(p: *const PathlightPaint) -> Result<Paint, Error> {
@@ -384,14 +415,15 @@ pub unsafe extern "C" fn pathlight_fill(
             PATHLIGHT_FILL_EVENODD => FillRule::EvenOdd,
             _ => return Err(Error::InvalidArgument),
         };
+        let (mut target, clip) = target_and_clip(target, clip_)?;
         pathlight::fill(
-            &mut surface(target)?,
+            &mut target,
             path.0.as_path(),
             rule,
             &paint(paint_)?,
             &transform(transform_),
             blend(blend_mode)?,
-            clip(clip_)?.as_ref(),
+            clip.as_ref(),
         )
     })
 }
@@ -409,14 +441,15 @@ pub unsafe extern "C" fn pathlight_stroke(
 ) -> PathlightStatus {
     guard(|| unsafe {
         let path = path.as_ref().ok_or(Error::InvalidArgument)?;
+        let (mut target, clip) = target_and_clip(target, clip_)?;
         pathlight::stroke(
-            &mut surface(target)?,
+            &mut target,
             path.0.as_path(),
             &stroke_style(style)?,
             &paint(paint_)?,
             &transform(transform_),
             blend(blend_mode)?,
-            clip(clip_)?.as_ref(),
+            clip.as_ref(),
         )
     })
 }
@@ -471,8 +504,9 @@ pub unsafe extern "C" fn pathlight_draw_text(
         }
         let text = std::str::from_utf8(std::slice::from_raw_parts(text.cast(), len))
             .map_err(|_| Error::InvalidArgument)?;
+        let (mut target, clip) = target_and_clip(target, clip_)?;
         pathlight::draw_text(
-            &mut surface(target)?,
+            &mut target,
             &font.0,
             text,
             size,
@@ -481,7 +515,7 @@ pub unsafe extern "C" fn pathlight_draw_text(
             &paint(paint_)?,
             &transform(transform_),
             blend(blend_mode)?,
-            clip(clip_)?.as_ref(),
+            clip.as_ref(),
         )
     })
 }
