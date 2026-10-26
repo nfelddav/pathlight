@@ -17,6 +17,9 @@
 
 #define PATHLIGHT_FORMAT_A8 2
 
+// Largest `height` a surface or clip may have.
+#define PATHLIGHT_MAX_HEIGHT (1 << 30)
+
 #define PATHLIGHT_FILL_NONZERO 0
 
 #define PATHLIGHT_FILL_EVENODD 1

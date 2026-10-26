@@ -11,6 +11,11 @@ impl Point {
     pub const fn new(x: f32, y: f32) -> Self {
         Point { x, y }
     }
+
+    /// Distance from the origin.
+    pub fn len(self) -> f32 {
+        self.x.hypot(self.y)
+    }
 }
 
 impl Add for Point {

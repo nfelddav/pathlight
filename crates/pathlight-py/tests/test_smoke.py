@@ -19,13 +19,29 @@ def test_surface_starts_transparent():
     assert s.data() == bytes(4 * 2 * 4)
 
 
-def test_fill_not_implemented_yet():
+def test_fill_draws_pixels():
     path = pathlight.Path()
     path.move_to(0, 0)
     path.line_to(4, 0)
-    path.line_to(0, 4)
-    with pytest.raises(NotImplementedError):
-        pathlight.fill(pathlight.Surface(8, 8), path, (1, 0, 0, 1), blend=pathlight.BlendMode.MULTIPLY)
+    path.line_to(4, 2)
+    path.line_to(0, 2)
+    s = pathlight.Surface(4, 4)
+    pathlight.fill(s, path, (1, 0, 0, 1))
+    data = s.data()
+    assert data[:4] == bytes([255, 0, 0, 255])
+    assert data[3 * 16 :] == bytes(16)
+
+
+def test_fill_respects_clip():
+    clip = pathlight.Surface(4, 1, pathlight.Format.A8)
+    s = pathlight.Surface(4, 1)
+    path = pathlight.Path()
+    path.move_to(0, 0)
+    path.line_to(4, 0)
+    path.line_to(4, 1)
+    path.line_to(0, 1)
+    pathlight.fill(s, path, (1, 0, 0, 1), clip=clip)
+    assert s.data() == bytes(16)
 
 
 def _triangle():

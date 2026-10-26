@@ -30,6 +30,10 @@ impl Format {
     }
 }
 
+/// The tallest surface or mask pathlight accepts, in rows. The rasterizer
+/// packs the row into a 64-bit sort key and needs the headroom.
+pub const MAX_HEIGHT: u32 = 1 << 30;
+
 /// A caller-owned pixel buffer to render into. pathlight never allocates or
 /// frees the pixels.
 #[derive(Debug)]
@@ -42,7 +46,8 @@ pub struct Surface<'a> {
 }
 
 impl<'a> Surface<'a> {
-    /// Wraps `data` as `height` rows of `stride` bytes each.
+    /// Wraps `data` as `height` rows, `stride` bytes apart; the last row only
+    /// needs `width` pixels. `height` may be at most [`MAX_HEIGHT`].
     pub fn new(
         data: &'a mut [u8],
         width: u32,
@@ -133,7 +138,7 @@ fn check_layout(
     let row = (width as usize)
         .checked_mul(format.bytes_per_pixel())
         .ok_or(Error::InvalidArgument)?;
-    if width == 0 || height == 0 || stride < row {
+    if width == 0 || height == 0 || height > MAX_HEIGHT || stride < row {
         return Err(Error::InvalidArgument);
     }
     // The last row only needs `row` bytes, not a full stride.
@@ -166,6 +171,16 @@ mod tests {
         );
         assert_eq!(
             Surface::new(&mut buf, 4, 1, 3, Format::A8).unwrap_err(),
+            Error::InvalidArgument
+        );
+    }
+
+    #[test]
+    fn rejects_height_above_limit() {
+        // One byte per row would do, but the height check comes first.
+        let data = [0u8; 1];
+        assert_eq!(
+            Mask::new(&data, 1, MAX_HEIGHT + 1, 0).unwrap_err(),
             Error::InvalidArgument
         );
     }

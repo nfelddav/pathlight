@@ -11,6 +11,7 @@
 //! backends without changing the public API. See `docs/DESIGN.md`.
 
 mod blend;
+mod composite;
 mod error;
 mod geom;
 mod paint;
@@ -29,6 +30,6 @@ pub use paint::{Color, Paint};
 pub use path::{FillRule, Path, PathBuilder, Verb};
 pub use render::{fill, stroke};
 pub use stroke::{LineCap, LineJoin, StrokeStyle};
-pub use surface::{Format, Mask, Surface};
+pub use surface::{Format, MAX_HEIGHT, Mask, Surface};
 #[cfg(feature = "text")]
 pub use text::{Font, draw_text};

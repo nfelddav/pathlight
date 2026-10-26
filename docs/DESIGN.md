@@ -41,6 +41,26 @@ PathBuilder ──► Path (lines, quads, cubics)
            caller's RGBA8 / BGRA8 / A8 buffer
 ```
 
+Details of the current implementation (`crates/pathlight/src/raster/`):
+
+- Curves are flattened in device space to within 0.1 px, so tolerance does
+  not depend on the transform. A curve whose control points are all off the
+  surface is replaced by its chord.
+- Lines are clipped against the left and right edges: parts left of the
+  surface become vertical lines at x = 0 (they still change winding to their
+  right), parts to the right are dropped.
+- Each line adds signed area contributions ("cells") only for the pixels it
+  crosses. Cells are sorted by (band, x, row), with bands 4 rows tall.
+- A sweep over each band turns runs of 4×4 tiles that contain cells into
+  strips with per-pixel alpha, and the gaps between them into fills with one
+  coverage value per row. A wide shape costs two strips and a fill per band,
+  not one alpha value per pixel.
+- Coverage maps to alpha by fill rule: non-zero clamps |winding area| to 1,
+  even-odd folds it modulo 2. Overlapping antialiased edges are approximate,
+  as in FreeType and font-rs.
+- The compositor writes opaque source-over spans directly as bytes and sends
+  everything else through the blend formulas.
+
 Each stage is independent of pixel format until the final store, so a SIMD
 or GPU backend can replace one stage without touching the API.
 `pathlight::composite` is the scalar reference compositor: optimized paths

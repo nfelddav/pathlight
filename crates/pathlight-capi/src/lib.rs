@@ -29,6 +29,10 @@ pub const PATHLIGHT_FORMAT_RGBA8: u32 = 0;
 pub const PATHLIGHT_FORMAT_BGRA8: u32 = 1;
 pub const PATHLIGHT_FORMAT_A8: u32 = 2;
 
+/// Largest `height` a surface or clip may have.
+pub const PATHLIGHT_MAX_HEIGHT: u32 = 1 << 30;
+const _: () = assert!(PATHLIGHT_MAX_HEIGHT == pathlight::MAX_HEIGHT);
+
 pub const PATHLIGHT_FILL_NONZERO: u32 = 0;
 pub const PATHLIGHT_FILL_EVENODD: u32 = 1;
 
