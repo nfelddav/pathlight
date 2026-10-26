@@ -19,13 +19,21 @@ use crate::stroke::{LineCap, LineJoin, StrokeStyle};
 /// on a long path cannot exhaust memory.
 const MAX_DASHES: f32 = 1e6;
 
+/// Lower bound on the outline points one stroke may produce. The real
+/// budget grows with the input so legitimate large paths still work, but a
+/// short path with wide round caps on many dashes cannot exhaust memory.
+const MIN_OUTLINE_BUDGET: usize = 1 << 23;
+
 /// A flattened subpath. `smooth[i]` marks vertices that lie inside a curve,
-/// where the stroke always uses a round join so it stays smooth.
+/// where the stroke always uses a round join so it stays smooth. `dir` is
+/// the path direction at a one-point polyline (a zero-length dash), which
+/// orients its caps; it is zero when the path has no direction there.
 #[derive(Clone, Debug, Default)]
 struct Polyline {
     pts: Vec<Point>,
     smooth: Vec<bool>,
     closed: bool,
+    dir: Point,
 }
 
 impl Polyline {
@@ -61,9 +69,14 @@ pub(crate) fn stroke_outline(
         style,
         tol,
         out: &mut out,
+        budget: MIN_OUTLINE_BUDGET.max(path.points().len().saturating_mul(64)),
+        exceeded: false,
     };
     for line in &lines {
         s.polyline(line);
+        if s.exceeded {
+            return Err(Error::InvalidArgument);
+        }
     }
     Ok(out.finish())
 }
@@ -191,6 +204,9 @@ fn dash(lines: &[Polyline], dashes: &[f32], offset: f32) -> Result<Vec<Polyline>
         let mut current: Option<Polyline> = starts_on.then(|| {
             let mut d = Polyline::default();
             d.push(line.pts[0], false);
+            if n > 1 {
+                d.dir = unit(line.pts[1] - line.pts[0]);
+            }
             d
         });
         let segments = if line.closed { n } else { n - 1 };
@@ -223,6 +239,7 @@ fn dash(lines: &[Polyline], dashes: &[f32], offset: f32) -> Result<Vec<Polyline>
                     if idx % 2 == 0 {
                         let mut d = Polyline::default();
                         d.push(p, false);
+                        d.dir = unit(b - a);
                         current = Some(d);
                     }
                 }
@@ -263,6 +280,9 @@ struct Stroker<'a> {
     style: &'a StrokeStyle,
     tol: f32,
     out: &'a mut PathBuilder,
+    /// Outline points still allowed; `exceeded` is set once they run out.
+    budget: usize,
+    exceeded: bool,
 }
 
 fn unit(v: Point) -> Point {
@@ -288,16 +308,21 @@ impl Stroker<'_> {
         let n = pts.len();
         let hw = self.hw;
         if n == 1 {
+            // A dot: oriented along the path where it has a direction (a
+            // zero-length dash), axis-aligned otherwise.
             let p = pts[0];
+            let d = if line.dir == Point::default() {
+                Point::new(1.0, 0.0)
+            } else {
+                line.dir
+            };
+            let (ext, nrm) = (d * hw, normal(d) * hw);
             match self.style.cap {
                 LineCap::Butt => {}
-                LineCap::Round => self.fan(p, Point::new(hw, 0.0), std::f32::consts::TAU),
-                LineCap::Square => self.polygon(&[
-                    p + Point::new(-hw, -hw),
-                    p + Point::new(hw, -hw),
-                    p + Point::new(hw, hw),
-                    p + Point::new(-hw, hw),
-                ]),
+                LineCap::Round => self.fan(p, nrm, std::f32::consts::TAU),
+                LineCap::Square => {
+                    self.polygon(&[p - ext - nrm, p + ext - nrm, p + ext + nrm, p - ext + nrm])
+                }
             }
             return;
         }
@@ -379,9 +404,11 @@ impl Stroker<'_> {
         // gives the fan the same area as the sector. The polygon then
         // straddles the arc instead of falling a full tolerance short, as an
         // inscribed one would. The two end vertices stay on the circle so
-        // they meet the segment edges exactly.
+        // they meet the segment edges exactly. Steps are at most a quarter
+        // turn, so a dot thinner than the tolerance still has area.
         let step = 2.0 * (1.0 - (self.tol / r).min(1.0)).acos();
-        let n = ((sweep.abs() / step.max(0.05)).ceil() as usize).clamp(2, 1024);
+        let step = step.clamp(0.05, std::f32::consts::FRAC_PI_2);
+        let n = ((sweep.abs() / step).ceil() as usize).clamp(2, 1024);
         let angle = sweep / n as f32;
         let (sin, cos) = angle.sin_cos();
         let s = sin.abs();
@@ -410,6 +437,11 @@ impl Stroker<'_> {
     /// Adds a closed polygon, reversed if needed so that every piece winds
     /// the same way and the non-zero fill takes their union.
     fn polygon(&mut self, pts: &[Point]) {
+        if self.exceeded || pts.len() > self.budget {
+            self.exceeded = true;
+            return;
+        }
+        self.budget -= pts.len();
         let mut area = 0.0;
         for i in 0..pts.len() {
             area += cross(pts[i], pts[(i + 1) % pts.len()]);
@@ -740,5 +772,54 @@ mod tests {
             None,
         );
         assert_eq!(r, Err(Error::InvalidArgument));
+    }
+
+    #[test]
+    fn thin_round_dots_still_draw() {
+        let mut b = PathBuilder::new();
+        b.move_to(Point::new(10.5, 10.5)).close();
+        let dot = b.finish();
+        for width in [0.05, 0.1, 0.2] {
+            let got = area(&render(
+                &dot,
+                &style(width, LineCap::Round, LineJoin::Miter),
+                &ID,
+                20,
+                20,
+            ));
+            let want = std::f32::consts::PI * width * width / 4.0;
+            assert!(
+                got > 0.0 && (got - want).abs() < 0.01,
+                "{width}: {got} vs {want}"
+            );
+        }
+    }
+
+    #[test]
+    fn zero_length_dash_square_caps_follow_the_path() {
+        // A diagonal line whose only dash has zero length: the square cap
+        // is turned 45 degrees, so its outline spans 4·√2 along x.
+        let mut s = style(4.0, LineCap::Square, LineJoin::Miter);
+        s.dashes = vec![0.0, 100.0];
+        let outline = stroke_outline(&line(10.0, 10.0, 40.0, 40.0), &s, &ID, 0.1).unwrap();
+        let xs = outline.points().iter().map(|p| p.x);
+        let span = xs.clone().fold(f32::MIN, f32::max) - xs.fold(f32::MAX, f32::min);
+        assert!(
+            (span - 4.0 * std::f32::consts::SQRT_2).abs() < 1e-3,
+            "{span}"
+        );
+    }
+
+    #[test]
+    fn huge_outlines_are_an_error() {
+        // Half a million dashes, each with two wide round caps, is far more
+        // outline than any picture needs.
+        let mut s = style(1000.0, LineCap::Round, LineJoin::Miter);
+        s.dashes = vec![0.2, 0.2];
+        let l = line(0.0, 0.0, 100_000.0, 0.0);
+        assert_eq!(
+            stroke_outline(&l, &s, &ID, 0.1).err(),
+            Some(Error::InvalidArgument)
+        );
     }
 }

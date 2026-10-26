@@ -39,7 +39,8 @@ pub fn fill(
 /// Strokes `path` into `surface`. See [`fill`] for `clip`.
 ///
 /// Returns [`Error::InvalidArgument`] if the dash pattern would split the
-/// path into more than a million dashes.
+/// path into more than a million dashes, or if the outline would need more
+/// than 2²³ points (or 64 per input point, if that is more).
 pub fn stroke(
     surface: &mut Surface<'_>,
     path: &Path,

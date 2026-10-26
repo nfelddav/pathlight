@@ -71,7 +71,9 @@ Details of the current implementation (`crates/pathlight/src/raster/`):
 - Dashing restarts the pattern on every subpath, repeats odd patterns twice
   (as SVG does), and joins a dash that runs over the start of a closed
   subpath into one. A pattern that would make more than a million dashes is
-  rejected.
+  rejected, and so is an outline over 2²³ points (or 64 per input point).
+  Zero-length dashes keep the path's direction, so their square and round
+  caps line up with the path.
 
 Each stage is independent of pixel format until the final store, so a SIMD
 or GPU backend can replace one stage without touching the API.
