@@ -1,0 +1,15 @@
+[package]
+name = "pathlight-capi"
+description = "C ABI for pathlight."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lib]
+name = "pathlight"
+crate-type = ["cdylib", "staticlib"]
+
+[dependencies]
+pathlight.workspace = true

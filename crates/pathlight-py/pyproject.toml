@@ -1,0 +1,14 @@
+[build-system]
+requires = ["maturin>=1.7,<2"]
+build-backend = "maturin"
+
+[project]
+name = "pathlight"
+description = "Lightweight 2D path renderer: Beziers and B-splines, CSS blend modes, shaped text."
+requires-python = ">=3.9"
+license = "MIT OR Apache-2.0"
+dynamic = ["version"]
+
+[tool.maturin]
+module-name = "pathlight"
+features = ["pyo3/extension-module"]
