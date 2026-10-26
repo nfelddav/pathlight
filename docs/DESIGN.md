@@ -60,6 +60,15 @@ Details of the current implementation (`crates/pathlight/src/raster/`):
   as in FreeType and font-rs.
 - The compositor writes opaque source-over spans directly as bytes and sends
   everything else through the blend formulas.
+- Text (`crates/pathlight/src/text.rs`): unicode-bidi splits each paragraph
+  into runs in visual order, unicode-script splits those by script (common
+  and inherited characters join the run around them), and harfrust shapes
+  each piece with its direction, script and surrounding text as context.
+  skrifa draws the glyphs unhinted in font units into one path, which is
+  filled non-zero like any other path, so text gets the same transforms,
+  blend modes and clips. `measure_text` returns the shaped advance so
+  callers can align text themselves. Fonts are parsed once when loaded and
+  shared by clones.
 
 Each stage is independent of pixel format until the final store, so a SIMD
 or GPU backend can replace one stage without touching the API.

@@ -337,6 +337,12 @@ impl Font {
     }
 }
 
+/// How far the pen moves when `text` is drawn at `size` pixels per em.
+#[pyfunction]
+fn measure_text(font: &Font, text: &str, size: f32) -> PyResult<f32> {
+    core::measure_text(&font.0, text, size).map_err(to_py)
+}
+
 /// Draws one line of `text`, baseline origin at (x, y), `size` pixels per
 /// em. See `fill` for `transform` and `clip`.
 #[pyfunction]
@@ -384,5 +390,6 @@ fn pathlight_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(fill, m)?)?;
     m.add_function(wrap_pyfunction!(stroke, m)?)?;
     m.add_function(wrap_pyfunction!(draw_text, m)?)?;
+    m.add_function(wrap_pyfunction!(measure_text, m)?)?;
     Ok(())
 }

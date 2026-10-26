@@ -91,6 +91,26 @@ fn main() {
     )
     .unwrap();
 
+    // Shaped text: Latin with kerning, then Arabic and Hebrew right to left.
+    let font =
+        pathlight::Font::from_bytes(include_bytes!("../tests/fonts/DejaVuSans-subset.ttf"), 0)
+            .unwrap();
+    let ink = Paint::Solid(Color::rgba(0.1, 0.1, 0.15, 1.0));
+    let text = "AV Type, مرحبا שלום";
+    pathlight::draw_text(
+        &mut surface,
+        &font,
+        text,
+        22.0,
+        18.0,
+        190.0,
+        &ink,
+        &id,
+        BlendMode::Normal,
+        None,
+    )
+    .unwrap();
+
     let mut ppm = format!("P6\n{w} {h}\n255\n").into_bytes();
     for px in pixels.as_chunks::<4>().0 {
         ppm.extend_from_slice(&px[..3]);

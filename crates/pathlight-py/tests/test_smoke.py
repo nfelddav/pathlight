@@ -92,3 +92,21 @@ def test_non_finite_color_is_rejected():
 def test_font_rejects_garbage():
     with pytest.raises(ValueError):
         pathlight.Font(b"not a font")
+
+
+FONT = (
+    __import__("pathlib").Path(__file__).resolve().parents[2]
+    / "pathlight"
+    / "tests"
+    / "fonts"
+    / "DejaVuSans-subset.ttf"
+)
+
+
+def test_text_measure_and_draw():
+    font = pathlight.Font(FONT.read_bytes())
+    advance = pathlight.measure_text(font, "Hi", 20)
+    assert 15 < advance < 40
+    s = pathlight.Surface(48, 32, pathlight.Format.A8)
+    pathlight.draw_text(s, font, "Hi", 20, 2, 24, (0, 0, 0, 1))
+    assert sum(1 for a in s.data() if a) > 30

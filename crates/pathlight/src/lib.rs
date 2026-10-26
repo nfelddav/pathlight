@@ -32,4 +32,4 @@ pub use render::{fill, stroke};
 pub use stroke::{LineCap, LineJoin, StrokeStyle};
 pub use surface::{Format, MAX_HEIGHT, Mask, Surface};
 #[cfg(feature = "text")]
-pub use text::{Font, draw_text};
+pub use text::{Font, draw_text, measure_text, text_path};

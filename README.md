@@ -9,9 +9,9 @@ A lightweight 2D path renderer in Rust with a stable C ABI.
 - Renders into your own RGBA8, BGRA8 or A8 buffer; clip with any A8 mask
 - Sparse-strip rasterizer designed for low memory use, SIMD and later GPU offload
 
-> **Status:** early. Filling works end to end: paths and B-splines, both fill
-> rules, all blend modes, all three pixel formats and clip masks. Stroking and
-> text drawing still return "unimplemented". See [docs/DESIGN.md](docs/DESIGN.md)
+> **Status:** early. Filling and text work end to end: paths and B-splines,
+> both fill rules, shaped bidi text, all blend modes, all three pixel formats
+> and clip masks. Stroking still returns "unimplemented". See [docs/DESIGN.md](docs/DESIGN.md)
 > for what is planned and why.
 
 ## Layout
