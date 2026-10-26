@@ -1,6 +1,6 @@
 /* Smoke test for the pathlight C ABI: builds a path, validates arguments and
  * calls every draw entry point. Exits non-zero if the ABI misbehaves.
- * Stroking and text still report PATHLIGHT_STATUS_UNIMPLEMENTED. */
+ * Text drawing still reports PATHLIGHT_STATUS_UNIMPLEMENTED. */
 
 #include <math.h>
 #include <pathlight.h>
@@ -57,7 +57,7 @@ int main(void) {
     float dashes[] = {4.0f, 2.0f};
     PathlightStrokeStyle style = {2.0f, PATHLIGHT_CAP_ROUND, PATHLIGHT_JOIN_BEVEL, 4.0f, dashes, 2, 0.0f};
     expect("stroke", pathlight_stroke(&surface, path, &style, &red, NULL, PATHLIGHT_BLEND_NORMAL, &mask),
-           PATHLIGHT_STATUS_UNIMPLEMENTED);
+           PATHLIGHT_STATUS_OK);
     expect("stroke rgba clip", pathlight_stroke(&surface, path, &style, &red, NULL, 0, &surface),
            PATHLIGHT_STATUS_INVALID_ARGUMENT);
 

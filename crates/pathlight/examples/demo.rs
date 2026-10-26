@@ -1,7 +1,8 @@
 //! Renders a few shapes into `demo.ppm`: `cargo run --example demo`.
 
 use pathlight::{
-    BlendMode, Color, FillRule, Format, Paint, PathBuilder, Point, Surface, Transform,
+    BlendMode, Color, FillRule, Format, LineCap, LineJoin, Paint, PathBuilder, Point, StrokeStyle,
+    Surface, Transform,
 };
 
 fn main() {
@@ -90,6 +91,60 @@ fn main() {
         None,
     )
     .unwrap();
+
+    // Strokes: a dashed wave with round caps, and a zigzag showing each join.
+    let mut b = PathBuilder::new();
+    b.move_to(Point::new(20.0, 185.0));
+    for i in 0..4 {
+        let x = 20.0 + i as f32 * 70.0;
+        b.cubic_to(
+            Point::new(x + 20.0, 160.0),
+            Point::new(x + 50.0, 210.0),
+            Point::new(x + 70.0, 185.0),
+        );
+    }
+    let dashed = StrokeStyle {
+        width: 5.0,
+        cap: LineCap::Round,
+        dashes: vec![14.0, 9.0],
+        ..StrokeStyle::default()
+    };
+    let purple = Paint::Solid(Color::rgba(0.45, 0.2, 0.75, 1.0));
+    pathlight::stroke(
+        &mut surface,
+        &b.finish(),
+        &dashed,
+        &purple,
+        &id,
+        BlendMode::Normal,
+        None,
+    )
+    .unwrap();
+    for (i, join) in [LineJoin::Miter, LineJoin::Round, LineJoin::Bevel]
+        .into_iter()
+        .enumerate()
+    {
+        let x = 215.0 + i as f32 * 33.0;
+        let mut b = PathBuilder::new();
+        b.move_to(Point::new(x, 150.0))
+            .line_to(Point::new(x + 12.0, 115.0))
+            .line_to(Point::new(x + 24.0, 150.0));
+        let style = StrokeStyle {
+            width: 7.0,
+            join,
+            ..StrokeStyle::default()
+        };
+        pathlight::stroke(
+            &mut surface,
+            &b.finish(),
+            &style,
+            &dark,
+            &id,
+            BlendMode::Normal,
+            None,
+        )
+        .unwrap();
+    }
 
     let mut ppm = format!("P6\n{w} {h}\n255\n").into_bytes();
     for px in pixels.as_chunks::<4>().0 {
