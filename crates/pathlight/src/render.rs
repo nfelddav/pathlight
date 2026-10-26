@@ -1,8 +1,10 @@
 use crate::blend::BlendMode;
+use crate::composite;
 use crate::error::Error;
 use crate::geom::Transform;
 use crate::paint::Paint;
 use crate::path::{FillRule, Path};
+use crate::raster;
 use crate::stroke::StrokeStyle;
 use crate::surface::{Mask, Surface};
 
@@ -19,11 +21,18 @@ pub fn fill(
     blend: BlendMode,
     clip: Option<&Mask<'_>>,
 ) -> Result<(), Error> {
-    let _ = (surface, fill_rule, blend, clip);
     if !transform.is_finite() || !path.is_finite() || !paint.is_valid() {
         return Err(Error::InvalidArgument);
     }
-    Err(Error::Unimplemented)
+    let coverage = raster::rasterize(
+        path,
+        transform,
+        fill_rule,
+        surface.width(),
+        surface.height(),
+    );
+    composite::paint_coverage(surface, &coverage, paint, blend, clip);
+    Ok(())
 }
 
 /// Strokes `path` into `surface`. See [`fill`] for `clip`.
@@ -92,7 +101,7 @@ mod tests {
         );
         assert_eq!(
             fill(&mut s, &ok, FillRule::NonZero, &red, &id, n, None),
-            Err(Error::Unimplemented)
+            Ok(())
         );
     }
 }

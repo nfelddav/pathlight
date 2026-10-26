@@ -1,6 +1,6 @@
 /* Smoke test for the pathlight C ABI: builds a path, validates arguments and
  * calls every draw entry point. Exits non-zero if the ABI misbehaves.
- * Drawing calls currently report PATHLIGHT_STATUS_UNIMPLEMENTED. */
+ * Stroking and text still report PATHLIGHT_STATUS_UNIMPLEMENTED. */
 
 #include <math.h>
 #include <pathlight.h>
@@ -36,8 +36,14 @@ int main(void) {
     expect("bspline", pathlight_path_bspline(path, spline, 5, true), PATHLIGHT_STATUS_OK);
     expect("bspline too short", pathlight_path_bspline(path, spline, 3, false), PATHLIGHT_STATUS_INVALID_ARGUMENT);
 
-    expect("fill", pathlight_fill(&surface, path, PATHLIGHT_FILL_NONZERO, &red, NULL, PATHLIGHT_BLEND_MULTIPLY, NULL),
-           PATHLIGHT_STATUS_UNIMPLEMENTED);
+    expect("fill", pathlight_fill(&surface, path, PATHLIGHT_FILL_NONZERO, &red, NULL, PATHLIGHT_BLEND_NORMAL, NULL),
+           PATHLIGHT_STATUS_OK);
+    const uint8_t *inside = &pixels[(20 * W + 30) * 4];
+    const uint8_t *outside = &pixels[(2 * W + 2) * 4];
+    if (inside[0] != 255 || inside[3] != 255 || outside[3] != 0) {
+        fprintf(stderr, "FAIL fill pixels: inside %d,%d outside %d\n", inside[0], inside[3], outside[3]);
+        failures++;
+    }
     expect("fill bad blend", pathlight_fill(&surface, path, PATHLIGHT_FILL_NONZERO, &red, NULL, 99, NULL),
            PATHLIGHT_STATUS_INVALID_ARGUMENT);
 
@@ -60,7 +66,7 @@ int main(void) {
     uint8_t *tight = malloc(16 * 1 + 2 * 4);
     PathlightSurface tight_surface = {tight, 2, 2, 16, PATHLIGHT_FORMAT_RGBA8};
     expect("fill tight last row", pathlight_fill(&tight_surface, path, PATHLIGHT_FILL_NONZERO, &red, NULL, 0, NULL),
-           PATHLIGHT_STATUS_UNIMPLEMENTED);
+           PATHLIGHT_STATUS_OK);
     free(tight);
 
     /* A clip may not share bytes with the target it clips. */

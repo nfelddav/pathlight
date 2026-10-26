@@ -9,10 +9,10 @@ A lightweight 2D path renderer in Rust with a stable C ABI.
 - Renders into your own RGBA8, BGRA8 or A8 buffer; clip with any A8 mask
 - Sparse-strip rasterizer designed for low memory use, SIMD and later GPU offload
 
-> **Status:** early scaffold. Paths, B-spline conversion, blend math, surfaces
-> and the C/Python APIs exist; the rasterizer, stroker and text drawing return
-> "unimplemented" for now. See [docs/DESIGN.md](docs/DESIGN.md) for what is
-> planned and why.
+> **Status:** early. Filling works end to end: paths and B-splines, both fill
+> rules, all blend modes, all three pixel formats and clip masks. Stroking and
+> text drawing still return "unimplemented". See [docs/DESIGN.md](docs/DESIGN.md)
+> for what is planned and why.
 
 ## Layout
 
@@ -29,6 +29,7 @@ A lightweight 2D path renderer in Rust with a stable C ABI.
 cargo test                                   # core + C ABI
 cargo build --release -p pathlight-capi      # libpathlight.{a,so}
 make -C examples/c run                       # C example
+cargo run -p pathlight --example demo        # writes demo.ppm
 cd crates/pathlight-py && maturin develop    # Python module
 ```
 

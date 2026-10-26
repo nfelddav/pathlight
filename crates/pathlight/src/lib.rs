@@ -11,6 +11,7 @@
 //! backends without changing the public API. See `docs/DESIGN.md`.
 
 mod blend;
+mod composite;
 mod error;
 mod geom;
 mod paint;
