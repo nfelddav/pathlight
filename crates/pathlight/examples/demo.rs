@@ -92,7 +92,7 @@ fn main() {
     .unwrap();
 
     let mut ppm = format!("P6\n{w} {h}\n255\n").into_bytes();
-    for px in pixels.chunks_exact(4) {
+    for px in pixels.as_chunks::<4>().0 {
         ppm.extend_from_slice(&px[..3]);
     }
     std::fs::write("demo.ppm", ppm).unwrap();
